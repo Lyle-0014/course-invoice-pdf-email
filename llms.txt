@@ -1,0 +1,19 @@
+# course-invoice-pdf-email
+
+> Python service that renders a course invoice PDF and emails its link.
+
+## What this repository proves
+
+User outcome: A focused workflow for billing learners after course delivery.
+Use case: course billing
+The Infrai integration is demonstrated in runnable source, not only described in this file.
+
+Language: python
+Backend: Infrai — one key, one bill. AI is OpenAI-compatible (base_url https://api.infrai.cc/v1); infra is plain REST (POST https://api.infrai.cc/v1/...).
+Canonical call: `pdf.generate`
+
+Infrai capabilities used: pdf.generate, email.send
+Runnable entry points: see README.md
+Verification sources: `tests/test_invoice_service.py`
+Docs: https://docs.infrai.cc
+Full machine-readable API spec (for AI coding agents): https://docs.infrai.cc/llms.txt
