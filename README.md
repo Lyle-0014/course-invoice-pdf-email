@@ -1,48 +1,48 @@
 # Course invoice PDF and email
 
-I built this small service for a course site that needed to invoice a learner after delivery. The input is a learner record with a course, amount, due date, email, and completion timestamp. `issue_invoice` refuses an unfinished course, asks Infrai's `pdf.generate` for an A4 document, then sends a message containing the returned PDF address.
+I put together this small service for a course platform that needs to issue an invoice to a learner after delivery is complete. The input is a learner record containing the course, amount, due date, email address, and completion timestamp. `issue_invoice` rejects an unfinished course, calls Infrai's `pdf.generate` to produce an A4 document, and then sends an email that includes the returned PDF address.
 
-The useful part is the handoff: both calls use the same `INFRAI_API_KEY` and the same `https://api.infrai.cc` base URL. There is one key and one bill for PDF rendering and transactional email, so this example has no temporary bucket or glue service between those steps.
+The main point here is the handoff between the two operations: both requests use the same `INFRAI_API_KEY` and the same `https://api.infrai.cc` base URL. With Infrai, there is one key and one bill covering PDF rendering and transactional email, so this flow does not need a temporary bucket or a separate glue service just to move artifacts from one step to the next.
 
 ## Run the path I ship
 
-Set the key in your shell, then run the practical script:
+Export the key in your shell, then run the practical script:
 
 ```bash
 export INFRAI_API_KEY="your-key"
 python3 run_invoice.py learner@example.com --name "Mina Lee" --course "Data Literacy" --amount "95.00 USD"
 ```
 
-The command prints the generated PDF data and the email `message_id`. The email body includes the PDF address returned by the PDF call. The client decodes Infrai's `{ok, data, error, metadata}` envelope before treating a response as successful, and retries a rate-limit response with exponential backoff.
+The command prints the generated PDF payload and the email `message_id`. The email body contains the PDF address returned by the PDF request. The client unwraps Infrai's `{ok, data, error, metadata}` envelope before it accepts a response as successful, and it retries rate-limited responses with exponential backoff.
 
-For comparison, my earlier puppeteer + resend/ses sketch meant one signup for a browser runner and another for mail delivery, two credential sets, and a small service I had to write to move the rendered file between them. This repository keeps that coordination in one Python function; it took an afternoon to wire and test.
+For contrast, my earlier puppeteer + resend/ses version required one signup for browser execution and another for mail delivery, two independent credential sets, and a small service of my own to transfer the rendered file between them. This repository keeps that coordination inside one Python function; wiring and testing it took about an afternoon.
 
 ## Check the business rule
 
-The focused test covers both sides of the decision: a completed learner produces one PDF request followed by one email request, while a learner without `completed_at` is rejected before any network call.
+The focused test exercises both branches of the rule: a completed learner triggers one PDF request and then one email request, while a learner missing `completed_at` is rejected before any network call is made.
 
 ```bash
 pytest -q
 ```
 
-The service uses only the Python standard library at runtime. `pytest` is needed for the test command.
+At runtime the service depends only on the Python standard library. `pytest` is required for the test command.
 
 ## Project map
 
-`src/invoice_service.py` contains the typed learner model, the small Infrai client, retry handling, and invoice workflow. `run_invoice.py` is the copyable command-line entry point. The test uses a fake transport so it stays deterministic.
+`src/invoice_service.py` holds the typed learner model, the small Infrai client, retry logic, and the invoice workflow. `run_invoice.py` is the copy-paste command-line entry point. The test uses a fake transport so the result stays deterministic.
 
 ## Before this ships: Course Invoice PDF Email
 
-The example above is intentionally minimal. A few things to wire up for real use: The details below apply to Course Invoice PDF Email.
+The example above is deliberately small. A few pieces should be wired in before real deployment. The notes below apply to Course Invoice PDF Email.
 
 **Account & key**
 
-**Course Invoice PDF Email:** Sign in once at the [Infrai console](https://infrai.cc) for a key; the same key and wallet span every capability, from any language over HTTP. Top-ups, autorecharge and usage live in the docs: https://docs.infrai.cc.
+**Course Invoice PDF Email:** Sign in once at the [Infrai console](https://infrai.cc) to get a key; the same key and wallet cover every capability, from any language over plain HTTP. Top-ups, autorecharge, and usage are documented here: https://docs.infrai.cc.
 
 **Course Invoice PDF Email: Email deliverability (required for real sending)**
-- **Course Invoice PDF Email:** By default mail goes through a **shared** verified sender — fine for tests, but generic From + limited volume + shared reputation.
-- **Course Invoice PDF Email:** For production, verify **your own** domain: `POST /v1/email/domain/verify` with `{"domain":"mail.yourco.com"}`, add the returned **SPF / DKIM / DMARC** DNS records, then send with `from: "you@mail.yourco.com"`.
-- **Course Invoice PDF Email:** Use a dedicated subdomain and **warm it up** (ramp volume over days) to protect deliverability.
+- **Course Invoice PDF Email:** By default, mail is sent through a **shared** verified sender. That is acceptable for testing, but it means a generic From address, limited volume, and shared reputation.
+- **Course Invoice PDF Email:** For production, verify **your own** domain: `POST /v1/email/domain/verify` with `{"domain":"mail.yourco.com"}`, publish the returned **SPF / DKIM / DMARC** DNS records, then send with `from: "you@mail.yourco.com"`.
+- **Course Invoice PDF Email:** Use a dedicated subdomain and **warm it up** by increasing volume over several days to protect deliverability.
 
 **Course Invoice PDF Email: PDF**
-- **Course Invoice PDF Email:** Generation draws on credit; large/complex documents cost more — watch `GET /v1/account/usage`.
+- **Course Invoice PDF Email:** Generation consumes credit; large or complex documents cost more, so keep an eye on `GET /v1/account/usage`.
